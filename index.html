@@ -7,6 +7,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+<!-- FIREBASE COMPAT -->
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 
@@ -60,21 +61,11 @@ button {
   color: black;
 }
 
-.filtro button.ativo {
-  background: purple;
-  color: white;
-}
-
 .card {
   background: #fafafa;
   padding: 10px;
   margin-top: 10px;
   border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.card p {
-  margin: 3px 0;
 }
 
 .resumo {
@@ -109,9 +100,8 @@ button {
 
 <button onclick="adicionar()">Salvar</button>
 
-<!-- FILTRO -->
 <div class="filtro">
-  <button onclick="filtrar('todos')" class="ativo">Todos</button>
+  <button onclick="filtrar('todos')">Todos</button>
   <button onclick="filtrarMesAtual()">Mês Atual</button>
 </div>
 
@@ -164,11 +154,11 @@ function adicionar() {
   limpar();
 }
 
-// LIMPAR
+// LIMPAR CAMPOS
 function limpar() {
-  nome.value = "";
-  valor.value = "";
-  mes.value = "";
+  document.getElementById("nome").value = "";
+  document.getElementById("valor").value = "";
+  document.getElementById("mes").value = "";
 }
 
 // FILTRO
@@ -177,10 +167,13 @@ function filtrar(tipo) {
   render();
 }
 
+// MÊS ATUAL CORRIGIDO (BR)
 function filtrarMesAtual() {
   const hoje = new Date();
-  const mesAtual = hoje.toISOString().slice(0,7);
-  filtroAtual = mesAtual;
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+
+  filtroAtual = `${ano}-${mes}`;
   render();
 }
 
@@ -191,16 +184,16 @@ function excluir(id) {
 
 // EDITAR
 function editar(id, item) {
-  nome.value = item.nome;
-  valor.value = item.valor;
-  tipo.value = item.tipo;
-  pagamento.value = item.pagamento;
-  mes.value = item.mes;
+  document.getElementById("nome").value = item.nome;
+  document.getElementById("valor").value = item.valor;
+  document.getElementById("tipo").value = item.tipo;
+  document.getElementById("pagamento").value = item.pagamento;
+  document.getElementById("mes").value = item.mes;
 
   excluir(id);
 }
 
-// REALTIME
+// TEMPO REAL
 db.ref("financas").on("value", snap => {
   dados = [];
   snap.forEach(c => {
@@ -236,9 +229,9 @@ function render() {
       `;
     });
 
-  entradasEl.innerText = entradas.toFixed(2).replace(".", ",");
-  saidasEl.innerText = saidas.toFixed(2).replace(".", ",");
-  saldoEl.innerText = (entradas - saidas).toFixed(2).replace(".", ",");
+  document.getElementById("entradas").innerText = entradas.toFixed(2).replace(".", ",");
+  document.getElementById("saidas").innerText = saidas.toFixed(2).replace(".", ",");
+  document.getElementById("saldo").innerText = (entradas - saidas).toFixed(2).replace(".", ",");
 
   atualizarGrafico(entradas, saidas);
 }
