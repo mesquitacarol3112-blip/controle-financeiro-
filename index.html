@@ -7,7 +7,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- FIREBASE COMPAT -->
+<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 
@@ -50,15 +50,24 @@ button {
   font-weight: bold;
 }
 
-.filtro {
+#meses {
   display: flex;
+  overflow-x: auto;
   gap: 5px;
+  margin: 10px 0;
 }
 
-.filtro button {
-  flex: 1;
+.mes-btn {
+  padding: 8px 12px;
   background: #ddd;
-  color: black;
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mes-btn.ativo {
+  background: purple;
+  color: white;
 }
 
 .card {
@@ -100,10 +109,8 @@ button {
 
 <button onclick="adicionar()">Salvar</button>
 
-<div class="filtro">
-  <button onclick="filtrar('todos')">Todos</button>
-  <button onclick="filtrarMesAtual()">Mês Atual</button>
-</div>
+<!-- GAVETA DE MESES -->
+<div id="meses"></div>
 
 <div id="lista"></div>
 
@@ -118,7 +125,7 @@ Saldo: R$ <span id="saldo">0</span>
 </div>
 
 <script>
-// FIREBASE
+// FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyCl73k3w5CO8X6Axr3K3eJRcKSuC-MZAFQ",
   authDomain: "controlefinanceiro-2480f.firebaseapp.com",
@@ -133,8 +140,18 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 let dados = [];
-let filtroAtual = "todos";
+let filtroAtual = null;
 let grafico;
+
+// FORMATAR MÊS BR
+function formatarMesBR(mes) {
+  const [ano, m] = mes.split("-");
+  const meses = [
+    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
+  ];
+  return `${meses[parseInt(m)-1]}/${ano}`;
+}
 
 // ADICIONAR
 function adicionar() {
@@ -154,27 +171,11 @@ function adicionar() {
   limpar();
 }
 
-// LIMPAR CAMPOS
+// LIMPAR
 function limpar() {
   document.getElementById("nome").value = "";
   document.getElementById("valor").value = "";
   document.getElementById("mes").value = "";
-}
-
-// FILTRO
-function filtrar(tipo) {
-  filtroAtual = tipo;
-  render();
-}
-
-// MÊS ATUAL CORRIGIDO (BR)
-function filtrarMesAtual() {
-  const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-
-  filtroAtual = `${ano}-${mes}`;
-  render();
 }
 
 // EXCLUIR
@@ -184,23 +185,53 @@ function excluir(id) {
 
 // EDITAR
 function editar(id, item) {
-  document.getElementById("nome").value = item.nome;
-  document.getElementById("valor").value = item.valor;
-  document.getElementById("tipo").value = item.tipo;
-  document.getElementById("pagamento").value = item.pagamento;
-  document.getElementById("mes").value = item.mes;
+  nome.value = item.nome;
+  valor.value = item.valor;
+  tipo.value = item.tipo;
+  pagamento.value = item.pagamento;
+  mes.value = item.mes;
 
   excluir(id);
 }
 
-// TEMPO REAL
+// CARREGAR DADOS
 db.ref("financas").on("value", snap => {
   dados = [];
   snap.forEach(c => {
     dados.push({ id: c.key, ...c.val() });
   });
+
+  if (dados.length > 0 && !filtroAtual) {
+    const meses = [...new Set(dados.map(d => d.mes))].sort().reverse();
+    filtroAtual = meses[0];
+  }
+
   render();
 });
+
+// RENDER MESES
+function renderMeses() {
+  const container = document.getElementById("meses");
+  container.innerHTML = "";
+
+  const mesesUnicos = [...new Set(dados.map(d => d.mes))].sort().reverse();
+
+  mesesUnicos.forEach(mes => {
+    const btn = document.createElement("div");
+    btn.className = "mes-btn";
+
+    if (mes === filtroAtual) btn.classList.add("ativo");
+
+    btn.innerText = formatarMesBR(mes);
+
+    btn.onclick = () => {
+      filtroAtual = mes;
+      render();
+    };
+
+    container.appendChild(btn);
+  });
+}
 
 // RENDER
 function render() {
@@ -211,7 +242,7 @@ function render() {
   let saidas = 0;
 
   dados
-    .filter(item => filtroAtual === "todos" || item.mes === filtroAtual)
+    .filter(item => !filtroAtual || item.mes === filtroAtual)
     .forEach(item => {
 
       if (item.tipo === "entrada") entradas += item.valor;
@@ -222,7 +253,7 @@ function render() {
           <p><b>${item.nome}</b></p>
           <p>R$ ${item.valor.toFixed(2).replace(".", ",")}</p>
           <p>${item.tipo} | ${item.pagamento}</p>
-          <p>${item.mes}</p>
+          <p>${formatarMesBR(item.mes)}</p>
           <button onclick='editar("${item.id}", ${JSON.stringify(item)})'>Editar</button>
           <button onclick='excluir("${item.id}")'>Excluir</button>
         </div>
@@ -234,6 +265,7 @@ function render() {
   document.getElementById("saldo").innerText = (entradas - saidas).toFixed(2).replace(".", ",");
 
   atualizarGrafico(entradas, saidas);
+  renderMeses();
 }
 
 // GRÁFICO
