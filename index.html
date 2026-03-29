@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>Finanças 💜</title>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -48,7 +47,6 @@ button {
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  margin-top: 5px;
 }
 
 .item {
@@ -103,26 +101,8 @@ Saldo: <span id="saldo">R$ 0</span>
 
 </div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } 
-from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-// FIREBASE CONFIG
-const firebaseConfig = {
-  apiKey: "AIzaSyCl73k3w5CO8X6Axr3K3eJRcKSuC-MZAFQ",
-  authDomain: "controlefinanceiro-2480f.firebaseapp.com",
-  projectId: "controlefinanceiro-2480f",
-  storageBucket: "controlefinanceiro-2480f.firebasestorage.app",
-  messagingSenderId: "526982146177",
-  appId: "1:526982146177:web:a02a4e0d2d31c9816d8580"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// VARIÁVEIS
-let dados = [];
+<script>
+let dados = JSON.parse(localStorage.getItem("dados")) || [];
 let grafico;
 
 // FORMATAR BR
@@ -133,38 +113,28 @@ function formatar(valor) {
   });
 }
 
-// 🔥 FUNÇÃO GLOBAL (BOTÃO FUNCIONA AQUI)
-window.adicionar = async function() {
-  try {
-    const nome = document.getElementById("nome").value;
-    const valor = parseFloat(document.getElementById("valor").value);
-    const tipo = document.getElementById("tipo").value;
-    const pagamento = document.getElementById("pagamento").value;
-    const mes = document.getElementById("mes").value;
+// ADICIONAR
+function adicionar() {
+  const nome = document.getElementById("nome").value;
+  const valor = parseFloat(document.getElementById("valor").value);
+  const tipo = document.getElementById("tipo").value;
+  const pagamento = document.getElementById("pagamento").value;
+  const mes = document.getElementById("mes").value;
 
-    if (!nome || !valor || !mes) {
-      alert("Preencha tudo!");
-      return;
-    }
-
-    await addDoc(collection(db, "movimentacoes"), {
-      nome,
-      valor,
-      tipo,
-      pagamento,
-      mes
-    });
-
-    limpar();
-    carregar();
-
-  } catch (erro) {
-    console.error("Erro:", erro);
-    alert("Erro ao salvar!");
+  if (!nome || !valor || !mes) {
+    alert("Preencha tudo!");
+    return;
   }
+
+  dados.push({ nome, valor, tipo, pagamento, mes });
+
+  salvar();
+  limpar();
+  atualizarFiltro();
+  render();
 }
 
-// LIMPAR
+// LIMPAR CAMPOS
 function limpar() {
   document.getElementById("nome").value = "";
   document.getElementById("valor").value = "";
@@ -173,28 +143,22 @@ function limpar() {
   document.getElementById("mes").value = "";
 }
 
-// CARREGAR
-async function carregar() {
-  const snapshot = await getDocs(collection(db, "movimentacoes"));
+// SALVAR
+function salvar() {
+  localStorage.setItem("dados", JSON.stringify(dados));
+}
 
-  dados = [];
-  snapshot.forEach(docSnap => {
-    dados.push({ id: docSnap.id, ...docSnap.data() });
-  });
-
+// EXCLUIR
+function excluir(index) {
+  dados.splice(index, 1);
+  salvar();
   atualizarFiltro();
   render();
 }
 
-// EXCLUIR
-window.excluir = async function(id) {
-  await deleteDoc(doc(db, "movimentacoes", id));
-  carregar();
-}
-
 // EDITAR
-window.editar = function(id) {
-  const item = dados.find(d => d.id === id);
+function editar(index) {
+  const item = dados[index];
 
   document.getElementById("nome").value = item.nome;
   document.getElementById("valor").value = item.valor;
@@ -202,7 +166,7 @@ window.editar = function(id) {
   document.getElementById("pagamento").value = item.pagamento;
   document.getElementById("mes").value = item.mes;
 
-  excluir(id);
+  excluir(index);
 }
 
 // FILTRO DE MÊS
@@ -218,7 +182,7 @@ function atualizarFiltro() {
 }
 
 // RENDER
-window.render = function() {
+function render() {
   const lista = document.getElementById("lista");
   const filtro = document.getElementById("filtroMes").value;
 
@@ -229,7 +193,7 @@ window.render = function() {
 
   dados
     .filter(d => !filtro || d.mes === filtro)
-    .forEach(item => {
+    .forEach((item, index) => {
 
       if (item.tipo === "entrada") entradas += item.valor;
       else saidas += item.valor;
@@ -238,8 +202,8 @@ window.render = function() {
         <div class="item">
           <b>${item.nome}</b> - ${formatar(item.valor)}<br>
           ${item.tipo} | ${item.pagamento} | ${item.mes}<br>
-          <button onclick="editar('${item.id}')">Editar</button>
-          <button onclick="excluir('${item.id}')">Excluir</button>
+          <button onclick="editar(${index})">Editar</button>
+          <button onclick="excluir(${index})">Excluir</button>
         </div>
       `;
     });
@@ -270,8 +234,8 @@ function atualizarGrafico(entradas, saidas) {
 }
 
 // INICIAR
-carregar();
-
+atualizarFiltro();
+render();
 </script>
 
 </body>
