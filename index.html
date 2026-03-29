@@ -2,99 +2,106 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Finanças 💜</title>
+<title>Controle Financeiro</title>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- FIREBASE COMPAT (IMPORTANTE) -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 
 <style>
 body {
   font-family: Arial;
-  background: #1e1b2e;
-  color: white;
-  margin: 0;
+  background: #f3e8ff;
+  padding: 20px;
 }
 
-.app {
-  max-width: 420px;
+.container {
+  max-width: 900px;
   margin: auto;
-  padding: 15px;
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
 }
 
 h1 {
   text-align: center;
-  color: #b388ff;
+  color: purple;
 }
 
-.card {
-  background: #2a2550;
-  padding: 15px;
-  border-radius: 12px;
-  margin-bottom: 15px;
-}
-
-input, select {
-  width: 100%;
-  padding: 10px;
-  margin: 5px 0;
-  border-radius: 8px;
-  border: none;
+input, select, button {
+  padding: 8px;
+  margin: 5px;
 }
 
 button {
-  width: 100%;
-  padding: 10px;
-  background: #7c4dff;
+  background: purple;
   color: white;
   border: none;
-  border-radius: 8px;
-  cursor: pointer;
+  border-radius: 5px;
 }
 
-.item {
-  background: #3a336f;
-  padding: 10px;
-  border-radius: 8px;
-  margin-top: 8px;
+table {
+  width: 100%;
+  margin-top: 15px;
+  border-collapse: collapse;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: center;
+}
+
+.resumo {
+  margin-top: 15px;
+  font-weight: bold;
 }
 </style>
 </head>
 
 <body>
 
-<div class="app">
-<h1>💜 Finanças</h1>
+<div class="container">
+<h1>💜 Controle Financeiro</h1>
 
-<div class="card">
-<input type="text" id="nome" placeholder="Nome (Luz, Mercado)">
+<input type="text" id="nome" placeholder="Ex: Luz, Mercado">
 <input type="number" id="valor" placeholder="Valor">
 
 <select id="tipo">
-<option value="entrada">Entrada</option>
-<option value="saida">Saída</option>
+  <option value="entrada">Entrada</option>
+  <option value="saida">Saída</option>
 </select>
 
 <select id="pagamento">
-<option>Débito</option>
-<option>Crédito</option>
-<option>Dinheiro</option>
+  <option>Débito</option>
+  <option>Crédito</option>
+  <option>Dinheiro</option>
 </select>
 
 <input type="month" id="mes">
 
 <button onclick="adicionar()">Salvar</button>
-</div>
 
-<div class="card">
-<select id="filtroMes" onchange="render()">
-<option value="">Todos os meses</option>
-</select>
-</div>
+<table>
+<thead>
+<tr>
+<th>Nome</th>
+<th>Valor</th>
+<th>Tipo</th>
+<th>Pagamento</th>
+<th>Mês</th>
+<th>Ações</th>
+</tr>
+</thead>
+<tbody id="tabela"></tbody>
+</table>
 
-<div class="card" id="lista"></div>
-
-<div class="card">
-Entradas: <span id="entradas">R$ 0</span><br>
-Saídas: <span id="saidas">R$ 0</span><br>
-Saldo: <span id="saldo">R$ 0</span>
+<div class="resumo">
+Entradas: R$ <span id="entradas">0</span> |
+Saídas: R$ <span id="saidas">0</span> |
+Saldo: R$ <span id="saldo">0</span>
 </div>
 
 <canvas id="grafico"></canvas>
@@ -102,18 +109,24 @@ Saldo: <span id="saldo">R$ 0</span>
 </div>
 
 <script>
-let dados = JSON.parse(localStorage.getItem("dados")) || [];
+// 🔥 CONFIG FIREBASE
+const firebaseConfig = {
+  apiKey: "AIzaSyCl73k3w5CO8X6Axr3K3eJRcKSuC-MZAFQ",
+  authDomain: "controlefinanceiro-2480f.firebaseapp.com",
+  databaseURL: "https://controlefinanceiro-2480f-default-rtdb.firebaseio.com",
+  projectId: "controlefinanceiro-2480f",
+  storageBucket: "controlefinanceiro-2480f.appspot.com",
+  messagingSenderId: "526982146177",
+  appId: "1:526982146177:web:a02a4e0d2d31c9816d8580"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let dados = [];
 let grafico;
 
-// FORMATAR BR
-function formatar(valor) {
-  return valor.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
-}
-
-// ADICIONAR
+// 🔥 ADICIONAR
 function adicionar() {
   const nome = document.getElementById("nome").value;
   const valor = parseFloat(document.getElementById("valor").value);
@@ -126,96 +139,90 @@ function adicionar() {
     return;
   }
 
-  dados.push({ nome, valor, tipo, pagamento, mes });
+  const novo = { nome, valor, tipo, pagamento, mes };
 
-  salvar();
-  limpar();
-  atualizarFiltro();
-  render();
+  db.ref("financas").push(novo);
+
+  limparCampos();
 }
 
-// LIMPAR CAMPOS
-function limpar() {
+// 🔥 LIMPAR CAMPOS
+function limparCampos() {
   document.getElementById("nome").value = "";
   document.getElementById("valor").value = "";
-  document.getElementById("tipo").value = "entrada";
-  document.getElementById("pagamento").value = "Débito";
   document.getElementById("mes").value = "";
 }
 
-// SALVAR
-function salvar() {
-  localStorage.setItem("dados", JSON.stringify(dados));
+// 🔥 EXCLUIR
+function excluir(id) {
+  db.ref("financas/" + id).remove();
 }
 
-// EXCLUIR
-function excluir(index) {
-  dados.splice(index, 1);
-  salvar();
-  atualizarFiltro();
-  render();
-}
-
-// EDITAR
-function editar(index) {
-  const item = dados[index];
-
+// 🔥 EDITAR
+function editar(id, item) {
   document.getElementById("nome").value = item.nome;
   document.getElementById("valor").value = item.valor;
   document.getElementById("tipo").value = item.tipo;
   document.getElementById("pagamento").value = item.pagamento;
   document.getElementById("mes").value = item.mes;
 
-  excluir(index);
+  excluir(id);
 }
 
-// FILTRO DE MÊS
-function atualizarFiltro() {
-  const filtro = document.getElementById("filtroMes");
-  const meses = [...new Set(dados.map(d => d.mes))];
+// 🔥 CARREGAR DADOS EM TEMPO REAL
+db.ref("financas").on("value", snapshot => {
+  dados = [];
 
-  filtro.innerHTML = '<option value="">Todos os meses</option>';
-
-  meses.forEach(m => {
-    filtro.innerHTML += `<option value="${m}">${m}</option>`;
+  snapshot.forEach(child => {
+    dados.push({
+      id: child.key,
+      ...child.val()
+    });
   });
-}
 
-// RENDER
+  render();
+});
+
+// 🔥 RENDER
 function render() {
-  const lista = document.getElementById("lista");
-  const filtro = document.getElementById("filtroMes").value;
-
-  lista.innerHTML = "";
+  const tabela = document.getElementById("tabela");
+  tabela.innerHTML = "";
 
   let entradas = 0;
   let saidas = 0;
 
-  dados
-    .filter(d => !filtro || d.mes === filtro)
-    .forEach((item, index) => {
+  dados.forEach(item => {
+    const tr = document.createElement("tr");
 
-      if (item.tipo === "entrada") entradas += item.valor;
-      else saidas += item.valor;
+    if (item.tipo === "entrada") {
+      entradas += item.valor;
+    } else {
+      saidas += item.valor;
+    }
 
-      lista.innerHTML += `
-        <div class="item">
-          <b>${item.nome}</b> - ${formatar(item.valor)}<br>
-          ${item.tipo} | ${item.pagamento} | ${item.mes}<br>
-          <button onclick="editar(${index})">Editar</button>
-          <button onclick="excluir(${index})">Excluir</button>
-        </div>
-      `;
-    });
+    tr.innerHTML = `
+      <td>${item.nome}</td>
+      <td>R$ ${item.valor.toFixed(2).replace(".", ",")}</td>
+      <td>${item.tipo}</td>
+      <td>${item.pagamento}</td>
+      <td>${item.mes}</td>
+      <td>
+        <button onclick='editar("${item.id}", ${JSON.stringify(item)})'>Editar</button>
+        <button onclick='excluir("${item.id}")'>Excluir</button>
+      </td>
+    `;
 
-  document.getElementById("entradas").innerText = formatar(entradas);
-  document.getElementById("saidas").innerText = formatar(saidas);
-  document.getElementById("saldo").innerText = formatar(entradas - saidas);
+    tabela.appendChild(tr);
+  });
+
+  document.getElementById("entradas").innerText = entradas.toFixed(2).replace(".", ",");
+  document.getElementById("saidas").innerText = saidas.toFixed(2).replace(".", ",");
+  document.getElementById("saldo").innerText = (entradas - saidas).toFixed(2).replace(".", ",");
 
   atualizarGrafico(entradas, saidas);
 }
 
-// GRÁFICO
+// 🔥 GRÁFICO
 function atualizarGrafico(entradas, saidas) {
   const ctx = document.getElementById("grafico");
 
@@ -227,15 +234,11 @@ function atualizarGrafico(entradas, saidas) {
       labels: ["Entradas", "Saídas"],
       datasets: [{
         data: [entradas, saidas],
-        backgroundColor: ["#00e676", "#ff5252"]
+        backgroundColor: ["green", "red"]
       }]
     }
   });
 }
-
-// INICIAR
-atualizarFiltro();
-render();
 </script>
 
 </body>
