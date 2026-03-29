@@ -82,11 +82,13 @@ button {
 
 <input type="month" id="mes">
 
-<button id="btnSalvar">Salvar</button>
+<button onclick="adicionar()">Salvar</button>
 </div>
 
 <div class="card">
-<select id="filtroMes"></select>
+<select id="filtroMes" onchange="render()">
+<option value="">Todos os meses</option>
+</select>
 </div>
 
 <div class="card" id="lista"></div>
@@ -106,6 +108,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } 
 from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+// FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyCl73k3w5CO8X6Axr3K3eJRcKSuC-MZAFQ",
   authDomain: "controlefinanceiro-2480f.firebaseapp.com",
@@ -118,22 +121,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// PEGAR ELEMENTOS
-const nomeInput = document.getElementById("nome");
-const valorInput = document.getElementById("valor");
-const tipoInput = document.getElementById("tipo");
-const pagamentoInput = document.getElementById("pagamento");
-const mesInput = document.getElementById("mes");
-
-const lista = document.getElementById("lista");
-const filtroMes = document.getElementById("filtroMes");
-
-const entradasSpan = document.getElementById("entradas");
-const saidasSpan = document.getElementById("saidas");
-const saldoSpan = document.getElementById("saldo");
-
-const btnSalvar = document.getElementById("btnSalvar");
-
+// VARIÁVEIS
 let dados = [];
 let grafico;
 
@@ -145,42 +133,52 @@ function formatar(valor) {
   });
 }
 
-// SALVAR
-btnSalvar.addEventListener("click", async () => {
-  const nome = nomeInput.value;
-  const valor = parseFloat(valorInput.value);
-  const tipo = tipoInput.value;
-  const pagamento = pagamentoInput.value;
-  const mes = mesInput.value;
+// 🔥 FUNÇÃO GLOBAL (BOTÃO FUNCIONA AQUI)
+window.adicionar = async function() {
+  try {
+    const nome = document.getElementById("nome").value;
+    const valor = parseFloat(document.getElementById("valor").value);
+    const tipo = document.getElementById("tipo").value;
+    const pagamento = document.getElementById("pagamento").value;
+    const mes = document.getElementById("mes").value;
 
-  if (!nome || !valor || !mes) {
-    alert("Preencha tudo!");
-    return;
+    if (!nome || !valor || !mes) {
+      alert("Preencha tudo!");
+      return;
+    }
+
+    await addDoc(collection(db, "movimentacoes"), {
+      nome,
+      valor,
+      tipo,
+      pagamento,
+      mes
+    });
+
+    limpar();
+    carregar();
+
+  } catch (erro) {
+    console.error("Erro:", erro);
+    alert("Erro ao salvar!");
   }
-
-  await addDoc(collection(db, "movimentacoes"), {
-    nome, valor, tipo, pagamento, mes
-  });
-
-  limpar();
-  carregar();
-});
+}
 
 // LIMPAR
 function limpar() {
-  nomeInput.value = "";
-  valorInput.value = "";
-  tipoInput.value = "entrada";
-  pagamentoInput.value = "Débito";
-  mesInput.value = "";
+  document.getElementById("nome").value = "";
+  document.getElementById("valor").value = "";
+  document.getElementById("tipo").value = "entrada";
+  document.getElementById("pagamento").value = "Débito";
+  document.getElementById("mes").value = "";
 }
 
 // CARREGAR
 async function carregar() {
-  const querySnapshot = await getDocs(collection(db, "movimentacoes"));
+  const snapshot = await getDocs(collection(db, "movimentacoes"));
 
   dados = [];
-  querySnapshot.forEach((docSnap) => {
+  snapshot.forEach(docSnap => {
     dados.push({ id: docSnap.id, ...docSnap.data() });
   });
 
@@ -198,36 +196,36 @@ window.excluir = async function(id) {
 window.editar = function(id) {
   const item = dados.find(d => d.id === id);
 
-  nomeInput.value = item.nome;
-  valorInput.value = item.valor;
-  tipoInput.value = item.tipo;
-  pagamentoInput.value = item.pagamento;
-  mesInput.value = item.mes;
+  document.getElementById("nome").value = item.nome;
+  document.getElementById("valor").value = item.valor;
+  document.getElementById("tipo").value = item.tipo;
+  document.getElementById("pagamento").value = item.pagamento;
+  document.getElementById("mes").value = item.mes;
 
   excluir(id);
 }
 
-// FILTRO
+// FILTRO DE MÊS
 function atualizarFiltro() {
+  const filtro = document.getElementById("filtroMes");
   const meses = [...new Set(dados.map(d => d.mes))];
 
-  filtroMes.innerHTML = '<option value="">Todos os meses</option>';
+  filtro.innerHTML = '<option value="">Todos os meses</option>';
 
   meses.forEach(m => {
-    filtroMes.innerHTML += `<option value="${m}">${m}</option>`;
+    filtro.innerHTML += `<option value="${m}">${m}</option>`;
   });
 }
 
-filtroMes.addEventListener("change", render);
-
 // RENDER
-function render() {
+window.render = function() {
+  const lista = document.getElementById("lista");
+  const filtro = document.getElementById("filtroMes").value;
+
   lista.innerHTML = "";
 
   let entradas = 0;
   let saidas = 0;
-
-  const filtro = filtroMes.value;
 
   dados
     .filter(d => !filtro || d.mes === filtro)
@@ -246,9 +244,9 @@ function render() {
       `;
     });
 
-  entradasSpan.innerText = formatar(entradas);
-  saidasSpan.innerText = formatar(saidas);
-  saldoSpan.innerText = formatar(entradas - saidas);
+  document.getElementById("entradas").innerText = formatar(entradas);
+  document.getElementById("saidas").innerText = formatar(saidas);
+  document.getElementById("saldo").innerText = formatar(entradas - saidas);
 
   atualizarGrafico(entradas, saidas);
 }
@@ -273,6 +271,7 @@ function atualizarGrafico(entradas, saidas) {
 
 // INICIAR
 carregar();
+
 </script>
 
 </body>
