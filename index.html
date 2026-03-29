@@ -48,6 +48,7 @@ button {
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  margin-top: 5px;
 }
 
 .item {
@@ -65,7 +66,7 @@ button {
 <h1>💜 Finanças</h1>
 
 <div class="card">
-<input type="text" id="nome" placeholder="Nome">
+<input type="text" id="nome" placeholder="Nome (Luz, Mercado)">
 <input type="number" id="valor" placeholder="Valor">
 
 <select id="tipo">
@@ -81,19 +82,19 @@ button {
 
 <input type="month" id="mes">
 
-<button onclick="adicionar()">Salvar</button>
+<button id="btnSalvar">Salvar</button>
 </div>
 
 <div class="card">
-<select id="filtroMes" onchange="render()"></select>
+<select id="filtroMes"></select>
 </div>
 
 <div class="card" id="lista"></div>
 
 <div class="card">
-Entradas: <span id="entradas">0</span><br>
-Saídas: <span id="saidas">0</span><br>
-Saldo: <span id="saldo">0</span>
+Entradas: <span id="entradas">R$ 0</span><br>
+Saídas: <span id="saidas">R$ 0</span><br>
+Saldo: <span id="saldo">R$ 0</span>
 </div>
 
 <canvas id="grafico"></canvas>
@@ -117,6 +118,22 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// PEGAR ELEMENTOS
+const nomeInput = document.getElementById("nome");
+const valorInput = document.getElementById("valor");
+const tipoInput = document.getElementById("tipo");
+const pagamentoInput = document.getElementById("pagamento");
+const mesInput = document.getElementById("mes");
+
+const lista = document.getElementById("lista");
+const filtroMes = document.getElementById("filtroMes");
+
+const entradasSpan = document.getElementById("entradas");
+const saidasSpan = document.getElementById("saidas");
+const saldoSpan = document.getElementById("saldo");
+
+const btnSalvar = document.getElementById("btnSalvar");
+
 let dados = [];
 let grafico;
 
@@ -128,15 +145,18 @@ function formatar(valor) {
   });
 }
 
-// ADICIONAR
-window.adicionar = async function() {
+// SALVAR
+btnSalvar.addEventListener("click", async () => {
   const nome = nomeInput.value;
   const valor = parseFloat(valorInput.value);
   const tipo = tipoInput.value;
   const pagamento = pagamentoInput.value;
   const mes = mesInput.value;
 
-  if (!nome || !valor || !mes) return alert("Preencha tudo");
+  if (!nome || !valor || !mes) {
+    alert("Preencha tudo!");
+    return;
+  }
 
   await addDoc(collection(db, "movimentacoes"), {
     nome, valor, tipo, pagamento, mes
@@ -144,9 +164,9 @@ window.adicionar = async function() {
 
   limpar();
   carregar();
-}
+});
 
-// LIMPAR CAMPOS
+// LIMPAR
 function limpar() {
   nomeInput.value = "";
   valorInput.value = "";
@@ -155,13 +175,13 @@ function limpar() {
   mesInput.value = "";
 }
 
-// CARREGAR DADOS
+// CARREGAR
 async function carregar() {
-  const query = await getDocs(collection(db, "movimentacoes"));
-  dados = [];
+  const querySnapshot = await getDocs(collection(db, "movimentacoes"));
 
-  query.forEach(doc => {
-    dados.push({ id: doc.id, ...doc.data() });
+  dados = [];
+  querySnapshot.forEach((docSnap) => {
+    dados.push({ id: docSnap.id, ...docSnap.data() });
   });
 
   atualizarFiltro();
@@ -175,27 +195,30 @@ window.excluir = async function(id) {
 }
 
 // EDITAR
-window.editar = function(item) {
+window.editar = function(id) {
+  const item = dados.find(d => d.id === id);
+
   nomeInput.value = item.nome;
   valorInput.value = item.valor;
   tipoInput.value = item.tipo;
   pagamentoInput.value = item.pagamento;
   mesInput.value = item.mes;
 
-  excluir(item.id);
+  excluir(id);
 }
 
 // FILTRO
 function atualizarFiltro() {
-  const filtro = filtroMes;
   const meses = [...new Set(dados.map(d => d.mes))];
 
-  filtro.innerHTML = '<option value="">Todos</option>';
+  filtroMes.innerHTML = '<option value="">Todos os meses</option>';
 
   meses.forEach(m => {
-    filtro.innerHTML += `<option value="${m}">${m}</option>`;
+    filtroMes.innerHTML += `<option value="${m}">${m}</option>`;
   });
 }
+
+filtroMes.addEventListener("change", render);
 
 // RENDER
 function render() {
@@ -217,7 +240,7 @@ function render() {
         <div class="item">
           <b>${item.nome}</b> - ${formatar(item.valor)}<br>
           ${item.tipo} | ${item.pagamento} | ${item.mes}<br>
-          <button onclick='editar(${JSON.stringify(item)})'>Editar</button>
+          <button onclick="editar('${item.id}')">Editar</button>
           <button onclick="excluir('${item.id}')">Excluir</button>
         </div>
       `;
@@ -248,7 +271,7 @@ function atualizarGrafico(entradas, saidas) {
   });
 }
 
-// INIT
+// INICIAR
 carregar();
 </script>
 
