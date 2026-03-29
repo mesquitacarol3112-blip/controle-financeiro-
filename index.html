@@ -4,99 +4,114 @@
 <meta charset="UTF-8">
 <title>Controle Financeiro</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
 body {
   font-family: Arial;
-  background: #f5f5f5;
-  padding: 20px;
+  background: #1e1b2e;
+  color: white;
+  margin: 0;
+}
+
+.app {
+  max-width: 420px;
+  margin: auto;
+  padding: 15px;
 }
 
 h1 {
   text-align: center;
+  color: #b388ff;
 }
 
-.container {
-  max-width: 900px;
-  margin: auto;
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
+.card {
+  background: #2a2550;
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 15px;
 }
 
-input, select, button {
-  padding: 8px;
-  margin: 5px;
-}
-
-table {
+input, select {
   width: 100%;
-  margin-top: 15px;
-  border-collapse: collapse;
-}
-
-th, td {
-  border: 1px solid #ccc;
-  padding: 8px;
-  text-align: center;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 8px;
+  border: none;
 }
 
 button {
+  width: 100%;
+  padding: 10px;
+  background: #7c4dff;
+  color: white;
+  border: none;
+  border-radius: 8px;
   cursor: pointer;
 }
 
-.resumo {
-  margin-top: 15px;
-  font-weight: bold;
+button:hover {
+  background: #651fff;
 }
 
+.item {
+  background: #3a336f;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+.resumo {
+  text-align: center;
+  margin-top: 10px;
+}
+
+small {
+  opacity: 0.7;
+}
 </style>
 </head>
 
 <body>
 
-<div class="container">
-<h1>💰 Controle Financeiro</h1>
+<div class="app">
 
-<!-- FORM -->
-<input type="text" id="nome" placeholder="Ex: Luz, Mercado">
-<input type="number" id="valor" placeholder="Valor">
-<select id="tipo">
-  <option value="entrada">Entrada</option>
-  <option value="saida">Saída</option>
-</select>
+<h1>💜 Finanças</h1>
 
-<select id="pagamento">
-  <option>Débito</option>
-  <option>Crédito</option>
-  <option>Dinheiro</option>
-</select>
+<div class="card">
+  <input type="text" id="nome" placeholder="Nome (Luz, Mercado...)">
+  <input type="number" id="valor" placeholder="Valor">
 
-<input type="month" id="mes">
+  <select id="tipo">
+    <option value="entrada">Entrada</option>
+    <option value="saida">Saída</option>
+  </select>
 
-<button onclick="adicionar()">Adicionar</button>
+  <select id="pagamento">
+    <option>Débito</option>
+    <option>Crédito</option>
+    <option>Dinheiro</option>
+  </select>
 
-<!-- TABELA -->
-<table>
-<thead>
-<tr>
-<th>Nome</th>
-<th>Valor</th>
-<th>Tipo</th>
-<th>Pagamento</th>
-<th>Mês</th>
-<th>Ações</th>
-</tr>
-</thead>
-<tbody id="tabela"></tbody>
-</table>
+  <input type="month" id="mes">
 
-<div class="resumo">
-Entradas: R$ <span id="entradas">0</span> |
-Saídas: R$ <span id="saidas">0</span> |
-Saldo: R$ <span id="saldo">0</span>
+  <button onclick="adicionar()">Salvar</button>
 </div>
 
-<canvas id="grafico"></canvas>
+<div class="card">
+  <select id="filtroMes" onchange="render()"></select>
+</div>
+
+<div class="card" id="lista"></div>
+
+<div class="card resumo">
+  Entradas: R$ <span id="entradas">0</span><br>
+  Saídas: R$ <span id="saidas">0</span><br>
+  Saldo: R$ <span id="saldo">0</span>
+</div>
+
+<div class="card">
+  <canvas id="grafico"></canvas>
+</div>
 
 </div>
 
@@ -118,8 +133,20 @@ function adicionar() {
   }
 
   dados.push({ nome, valor, tipo, pagamento, mes });
+
   salvar();
+  limparCampos();
+  atualizarFiltro();
   render();
+}
+
+// LIMPAR CAMPOS
+function limparCampos() {
+  document.getElementById("nome").value = "";
+  document.getElementById("valor").value = "";
+  document.getElementById("tipo").value = "entrada";
+  document.getElementById("pagamento").value = "Débito";
+  document.getElementById("mes").value = "";
 }
 
 // SALVAR
@@ -137,6 +164,7 @@ function excluir(index) {
 // EDITAR
 function editar(index) {
   const item = dados[index];
+
   document.getElementById("nome").value = item.nome;
   document.getElementById("valor").value = item.valor;
   document.getElementById("tipo").value = item.tipo;
@@ -146,37 +174,47 @@ function editar(index) {
   excluir(index);
 }
 
-// RENDERIZAR
+// FILTRO DE MÊS
+function atualizarFiltro() {
+  const filtro = document.getElementById("filtroMes");
+  const meses = [...new Set(dados.map(d => d.mes))];
+
+  filtro.innerHTML = '<option value="">Todos os meses</option>';
+
+  meses.forEach(m => {
+    filtro.innerHTML += `<option value="${m}">${m}</option>`;
+  });
+}
+
+// RENDER
 function render() {
-  const tabela = document.getElementById("tabela");
-  tabela.innerHTML = "";
+  const lista = document.getElementById("lista");
+  const filtroMes = document.getElementById("filtroMes").value;
+
+  lista.innerHTML = "";
 
   let entradas = 0;
   let saidas = 0;
 
-  dados.forEach((item, index) => {
-    const tr = document.createElement("tr");
+  dados
+    .filter(d => !filtroMes || d.mes === filtroMes)
+    .forEach((item, index) => {
 
-    if (item.tipo === "entrada") {
-      entradas += item.valor;
-    } else {
-      saidas += item.valor;
-    }
+      if (item.tipo === "entrada") {
+        entradas += item.valor;
+      } else {
+        saidas += item.valor;
+      }
 
-    tr.innerHTML = `
-      <td>${item.nome}</td>
-      <td>R$ ${item.valor.toFixed(2)}</td>
-      <td>${item.tipo}</td>
-      <td>${item.pagamento}</td>
-      <td>${item.mes}</td>
-      <td>
-        <button onclick="editar(${index})">Editar</button>
-        <button onclick="excluir(${index})">Excluir</button>
-      </td>
-    `;
-
-    tabela.appendChild(tr);
-  });
+      lista.innerHTML += `
+        <div class="item">
+          <b>${item.nome}</b> - R$ ${item.valor.toFixed(2)} <br>
+          <small>${item.tipo} | ${item.pagamento} | ${item.mes}</small><br>
+          <button onclick="editar(${index})">Editar</button>
+          <button onclick="excluir(${index})">Excluir</button>
+        </div>
+      `;
+    });
 
   document.getElementById("entradas").innerText = entradas.toFixed(2);
   document.getElementById("saidas").innerText = saidas.toFixed(2);
@@ -189,9 +227,7 @@ function render() {
 function atualizarGrafico(entradas, saidas) {
   const ctx = document.getElementById("grafico");
 
-  if (grafico) {
-    grafico.destroy();
-  }
+  if (grafico) grafico.destroy();
 
   grafico = new Chart(ctx, {
     type: "doughnut",
@@ -199,13 +235,14 @@ function atualizarGrafico(entradas, saidas) {
       labels: ["Entradas", "Saídas"],
       datasets: [{
         data: [entradas, saidas],
-        backgroundColor: ["green", "red"]
+        backgroundColor: ["#00e676", "#ff5252"]
       }]
     }
   });
 }
 
-// INICIAR
+// INIT
+atualizarFiltro();
 render();
 </script>
 
