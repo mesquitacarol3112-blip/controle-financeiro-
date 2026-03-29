@@ -2,7 +2,8 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Controle Financeiro</title>
+<title>Finanças 💜</title>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -49,24 +50,11 @@ button {
   cursor: pointer;
 }
 
-button:hover {
-  background: #651fff;
-}
-
 .item {
   background: #3a336f;
   padding: 10px;
   border-radius: 8px;
   margin-top: 8px;
-}
-
-.resumo {
-  text-align: center;
-  margin-top: 10px;
-}
-
-small {
-  opacity: 0.7;
 }
 </style>
 </head>
@@ -74,112 +62,135 @@ small {
 <body>
 
 <div class="app">
-
 <h1>💜 Finanças</h1>
 
 <div class="card">
-  <input type="text" id="nome" placeholder="Nome (Luz, Mercado...)">
-  <input type="number" id="valor" placeholder="Valor">
+<input type="text" id="nome" placeholder="Nome">
+<input type="number" id="valor" placeholder="Valor">
 
-  <select id="tipo">
-    <option value="entrada">Entrada</option>
-    <option value="saida">Saída</option>
-  </select>
+<select id="tipo">
+<option value="entrada">Entrada</option>
+<option value="saida">Saída</option>
+</select>
 
-  <select id="pagamento">
-    <option>Débito</option>
-    <option>Crédito</option>
-    <option>Dinheiro</option>
-  </select>
+<select id="pagamento">
+<option>Débito</option>
+<option>Crédito</option>
+<option>Dinheiro</option>
+</select>
 
-  <input type="month" id="mes">
+<input type="month" id="mes">
 
-  <button onclick="adicionar()">Salvar</button>
+<button onclick="adicionar()">Salvar</button>
 </div>
 
 <div class="card">
-  <select id="filtroMes" onchange="render()"></select>
+<select id="filtroMes" onchange="render()"></select>
 </div>
 
 <div class="card" id="lista"></div>
 
-<div class="card resumo">
-  Entradas: R$ <span id="entradas">0</span><br>
-  Saídas: R$ <span id="saidas">0</span><br>
-  Saldo: R$ <span id="saldo">0</span>
-</div>
-
 <div class="card">
-  <canvas id="grafico"></canvas>
+Entradas: <span id="entradas">0</span><br>
+Saídas: <span id="saidas">0</span><br>
+Saldo: <span id="saldo">0</span>
 </div>
+
+<canvas id="grafico"></canvas>
 
 </div>
 
-<script>
-let dados = JSON.parse(localStorage.getItem("dados")) || [];
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } 
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCl73k3w5CO8X6Axr3K3eJRcKSuC-MZAFQ",
+  authDomain: "controlefinanceiro-2480f.firebaseapp.com",
+  projectId: "controlefinanceiro-2480f",
+  storageBucket: "controlefinanceiro-2480f.firebasestorage.app",
+  messagingSenderId: "526982146177",
+  appId: "1:526982146177:web:a02a4e0d2d31c9816d8580"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let dados = [];
 let grafico;
 
+// FORMATAR BR
+function formatar(valor) {
+  return valor.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  });
+}
+
 // ADICIONAR
-function adicionar() {
-  const nome = document.getElementById("nome").value;
-  const valor = parseFloat(document.getElementById("valor").value);
-  const tipo = document.getElementById("tipo").value;
-  const pagamento = document.getElementById("pagamento").value;
-  const mes = document.getElementById("mes").value;
+window.adicionar = async function() {
+  const nome = nomeInput.value;
+  const valor = parseFloat(valorInput.value);
+  const tipo = tipoInput.value;
+  const pagamento = pagamentoInput.value;
+  const mes = mesInput.value;
 
-  if (!nome || !valor || !mes) {
-    alert("Preencha tudo!");
-    return;
-  }
+  if (!nome || !valor || !mes) return alert("Preencha tudo");
 
-  dados.push({ nome, valor, tipo, pagamento, mes });
+  await addDoc(collection(db, "movimentacoes"), {
+    nome, valor, tipo, pagamento, mes
+  });
 
-  salvar();
-  limparCampos();
+  limpar();
+  carregar();
+}
+
+// LIMPAR CAMPOS
+function limpar() {
+  nomeInput.value = "";
+  valorInput.value = "";
+  tipoInput.value = "entrada";
+  pagamentoInput.value = "Débito";
+  mesInput.value = "";
+}
+
+// CARREGAR DADOS
+async function carregar() {
+  const query = await getDocs(collection(db, "movimentacoes"));
+  dados = [];
+
+  query.forEach(doc => {
+    dados.push({ id: doc.id, ...doc.data() });
+  });
+
   atualizarFiltro();
   render();
 }
 
-// LIMPAR CAMPOS
-function limparCampos() {
-  document.getElementById("nome").value = "";
-  document.getElementById("valor").value = "";
-  document.getElementById("tipo").value = "entrada";
-  document.getElementById("pagamento").value = "Débito";
-  document.getElementById("mes").value = "";
-}
-
-// SALVAR
-function salvar() {
-  localStorage.setItem("dados", JSON.stringify(dados));
-}
-
 // EXCLUIR
-function excluir(index) {
-  dados.splice(index, 1);
-  salvar();
-  render();
+window.excluir = async function(id) {
+  await deleteDoc(doc(db, "movimentacoes", id));
+  carregar();
 }
 
 // EDITAR
-function editar(index) {
-  const item = dados[index];
+window.editar = function(item) {
+  nomeInput.value = item.nome;
+  valorInput.value = item.valor;
+  tipoInput.value = item.tipo;
+  pagamentoInput.value = item.pagamento;
+  mesInput.value = item.mes;
 
-  document.getElementById("nome").value = item.nome;
-  document.getElementById("valor").value = item.valor;
-  document.getElementById("tipo").value = item.tipo;
-  document.getElementById("pagamento").value = item.pagamento;
-  document.getElementById("mes").value = item.mes;
-
-  excluir(index);
+  excluir(item.id);
 }
 
-// FILTRO DE MÊS
+// FILTRO
 function atualizarFiltro() {
-  const filtro = document.getElementById("filtroMes");
+  const filtro = filtroMes;
   const meses = [...new Set(dados.map(d => d.mes))];
 
-  filtro.innerHTML = '<option value="">Todos os meses</option>';
+  filtro.innerHTML = '<option value="">Todos</option>';
 
   meses.forEach(m => {
     filtro.innerHTML += `<option value="${m}">${m}</option>`;
@@ -188,37 +199,33 @@ function atualizarFiltro() {
 
 // RENDER
 function render() {
-  const lista = document.getElementById("lista");
-  const filtroMes = document.getElementById("filtroMes").value;
-
   lista.innerHTML = "";
 
   let entradas = 0;
   let saidas = 0;
 
-  dados
-    .filter(d => !filtroMes || d.mes === filtroMes)
-    .forEach((item, index) => {
+  const filtro = filtroMes.value;
 
-      if (item.tipo === "entrada") {
-        entradas += item.valor;
-      } else {
-        saidas += item.valor;
-      }
+  dados
+    .filter(d => !filtro || d.mes === filtro)
+    .forEach(item => {
+
+      if (item.tipo === "entrada") entradas += item.valor;
+      else saidas += item.valor;
 
       lista.innerHTML += `
         <div class="item">
-          <b>${item.nome}</b> - R$ ${item.valor.toFixed(2)} <br>
-          <small>${item.tipo} | ${item.pagamento} | ${item.mes}</small><br>
-          <button onclick="editar(${index})">Editar</button>
-          <button onclick="excluir(${index})">Excluir</button>
+          <b>${item.nome}</b> - ${formatar(item.valor)}<br>
+          ${item.tipo} | ${item.pagamento} | ${item.mes}<br>
+          <button onclick='editar(${JSON.stringify(item)})'>Editar</button>
+          <button onclick="excluir('${item.id}')">Excluir</button>
         </div>
       `;
     });
 
-  document.getElementById("entradas").innerText = entradas.toFixed(2);
-  document.getElementById("saidas").innerText = saidas.toFixed(2);
-  document.getElementById("saldo").innerText = (entradas - saidas).toFixed(2);
+  entradasSpan.innerText = formatar(entradas);
+  saidasSpan.innerText = formatar(saidas);
+  saldoSpan.innerText = formatar(entradas - saidas);
 
   atualizarGrafico(entradas, saidas);
 }
@@ -242,8 +249,7 @@ function atualizarGrafico(entradas, saidas) {
 }
 
 // INIT
-atualizarFiltro();
-render();
+carregar();
 </script>
 
 </body>
