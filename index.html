@@ -2,11 +2,11 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Controle Financeiro</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- FIREBASE COMPAT (IMPORTANTE) -->
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 
@@ -14,15 +14,15 @@
 body {
   font-family: Arial;
   background: #f3e8ff;
-  padding: 20px;
+  margin: 0;
 }
 
 .container {
-  max-width: 900px;
+  max-width: 500px;
   margin: auto;
   background: white;
-  padding: 20px;
-  border-radius: 10px;
+  min-height: 100vh;
+  padding: 15px;
 }
 
 h1 {
@@ -30,33 +30,57 @@ h1 {
   color: purple;
 }
 
-input, select, button {
-  padding: 8px;
-  margin: 5px;
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 8px;
+  border: 1px solid #ccc;
 }
 
 button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
   background: purple;
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 10px;
+  font-weight: bold;
 }
 
-table {
-  width: 100%;
-  margin-top: 15px;
-  border-collapse: collapse;
+.filtro {
+  display: flex;
+  gap: 5px;
 }
 
-th, td {
-  border: 1px solid #ccc;
-  padding: 8px;
-  text-align: center;
+.filtro button {
+  flex: 1;
+  background: #ddd;
+  color: black;
+}
+
+.filtro button.ativo {
+  background: purple;
+  color: white;
+}
+
+.card {
+  background: #fafafa;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.card p {
+  margin: 3px 0;
 }
 
 .resumo {
-  margin-top: 15px;
+  margin-top: 10px;
   font-weight: bold;
+  text-align: center;
 }
 </style>
 </head>
@@ -64,9 +88,10 @@ th, td {
 <body>
 
 <div class="container">
-<h1>💜 Controle Financeiro</h1>
 
-<input type="text" id="nome" placeholder="Ex: Luz, Mercado">
+<h1>💜 Finanças</h1>
+
+<input type="text" id="nome" placeholder="Ex: Mercado">
 <input type="number" id="valor" placeholder="Valor">
 
 <select id="tipo">
@@ -84,23 +109,17 @@ th, td {
 
 <button onclick="adicionar()">Salvar</button>
 
-<table>
-<thead>
-<tr>
-<th>Nome</th>
-<th>Valor</th>
-<th>Tipo</th>
-<th>Pagamento</th>
-<th>Mês</th>
-<th>Ações</th>
-</tr>
-</thead>
-<tbody id="tabela"></tbody>
-</table>
+<!-- FILTRO -->
+<div class="filtro">
+  <button onclick="filtrar('todos')" class="ativo">Todos</button>
+  <button onclick="filtrarMesAtual()">Mês Atual</button>
+</div>
+
+<div id="lista"></div>
 
 <div class="resumo">
-Entradas: R$ <span id="entradas">0</span> |
-Saídas: R$ <span id="saidas">0</span> |
+Entradas: R$ <span id="entradas">0</span><br>
+Saídas: R$ <span id="saidas">0</span><br>
 Saldo: R$ <span id="saldo">0</span>
 </div>
 
@@ -109,7 +128,7 @@ Saldo: R$ <span id="saldo">0</span>
 </div>
 
 <script>
-// 🔥 CONFIG FIREBASE
+// FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyCl73k3w5CO8X6Axr3K3eJRcKSuC-MZAFQ",
   authDomain: "controlefinanceiro-2480f.firebaseapp.com",
@@ -124,9 +143,10 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 let dados = [];
+let filtroAtual = "todos";
 let grafico;
 
-// 🔥 ADICIONAR
+// ADICIONAR
 function adicionar() {
   const nome = document.getElementById("nome").value;
   const valor = parseFloat(document.getElementById("valor").value);
@@ -139,90 +159,91 @@ function adicionar() {
     return;
   }
 
-  const novo = { nome, valor, tipo, pagamento, mes };
+  db.ref("financas").push({ nome, valor, tipo, pagamento, mes });
 
-  db.ref("financas").push(novo);
-
-  limparCampos();
+  limpar();
 }
 
-// 🔥 LIMPAR CAMPOS
-function limparCampos() {
-  document.getElementById("nome").value = "";
-  document.getElementById("valor").value = "";
-  document.getElementById("mes").value = "";
+// LIMPAR
+function limpar() {
+  nome.value = "";
+  valor.value = "";
+  mes.value = "";
 }
 
-// 🔥 EXCLUIR
+// FILTRO
+function filtrar(tipo) {
+  filtroAtual = tipo;
+  render();
+}
+
+function filtrarMesAtual() {
+  const hoje = new Date();
+  const mesAtual = hoje.toISOString().slice(0,7);
+  filtroAtual = mesAtual;
+  render();
+}
+
+// EXCLUIR
 function excluir(id) {
   db.ref("financas/" + id).remove();
 }
 
-// 🔥 EDITAR
+// EDITAR
 function editar(id, item) {
-  document.getElementById("nome").value = item.nome;
-  document.getElementById("valor").value = item.valor;
-  document.getElementById("tipo").value = item.tipo;
-  document.getElementById("pagamento").value = item.pagamento;
-  document.getElementById("mes").value = item.mes;
+  nome.value = item.nome;
+  valor.value = item.valor;
+  tipo.value = item.tipo;
+  pagamento.value = item.pagamento;
+  mes.value = item.mes;
 
   excluir(id);
 }
 
-// 🔥 CARREGAR DADOS EM TEMPO REAL
-db.ref("financas").on("value", snapshot => {
+// REALTIME
+db.ref("financas").on("value", snap => {
   dados = [];
-
-  snapshot.forEach(child => {
-    dados.push({
-      id: child.key,
-      ...child.val()
-    });
+  snap.forEach(c => {
+    dados.push({ id: c.key, ...c.val() });
   });
-
   render();
 });
 
-// 🔥 RENDER
+// RENDER
 function render() {
-  const tabela = document.getElementById("tabela");
-  tabela.innerHTML = "";
+  const lista = document.getElementById("lista");
+  lista.innerHTML = "";
 
   let entradas = 0;
   let saidas = 0;
 
-  dados.forEach(item => {
-    const tr = document.createElement("tr");
+  dados
+    .filter(item => filtroAtual === "todos" || item.mes === filtroAtual)
+    .forEach(item => {
 
-    if (item.tipo === "entrada") {
-      entradas += item.valor;
-    } else {
-      saidas += item.valor;
-    }
+      if (item.tipo === "entrada") entradas += item.valor;
+      else saidas += item.valor;
 
-    tr.innerHTML = `
-      <td>${item.nome}</td>
-      <td>R$ ${item.valor.toFixed(2).replace(".", ",")}</td>
-      <td>${item.tipo}</td>
-      <td>${item.pagamento}</td>
-      <td>${item.mes}</td>
-      <td>
-        <button onclick='editar("${item.id}", ${JSON.stringify(item)})'>Editar</button>
-        <button onclick='excluir("${item.id}")'>Excluir</button>
-      </td>
-    `;
+      lista.innerHTML += `
+        <div class="card">
+          <p><b>${item.nome}</b></p>
+          <p>R$ ${item.valor.toFixed(2).replace(".", ",")}</p>
+          <p>${item.tipo} | ${item.pagamento}</p>
+          <p>${item.mes}</p>
+          <button onclick='editar("${item.id}", ${JSON.stringify(item)})'>Editar</button>
+          <button onclick='excluir("${item.id}")'>Excluir</button>
+        </div>
+      `;
+    });
 
-    tabela.appendChild(tr);
-  });
-
-  document.getElementById("entradas").innerText = entradas.toFixed(2).replace(".", ",");
-  document.getElementById("saidas").innerText = saidas.toFixed(2).replace(".", ",");
-  document.getElementById("saldo").innerText = (entradas - saidas).toFixed(2).replace(".", ",");
+  entradasEl.innerText = entradas.toFixed(2).replace(".", ",");
+  saidasEl.innerText = saidas.toFixed(2).replace(".", ",");
+  saldoEl.innerText = (entradas - saidas).toFixed(2).replace(".", ",");
 
   atualizarGrafico(entradas, saidas);
 }
 
-// 🔥 GRÁFICO
+// GRÁFICO
 function atualizarGrafico(entradas, saidas) {
   const ctx = document.getElementById("grafico");
 
