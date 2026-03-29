@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Controle Financeiro</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body {
+  font-family: Arial;
+  background: #f5f5f5;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+}
+
+.container {
+  max-width: 900px;
+  margin: auto;
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+input, select, button {
+  padding: 8px;
+  margin: 5px;
+}
+
+table {
+  width: 100%;
+  margin-top: 15px;
+  border-collapse: collapse;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: center;
+}
+
+button {
+  cursor: pointer;
+}
+
+.resumo {
+  margin-top: 15px;
+  font-weight: bold;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<h1>💰 Controle Financeiro</h1>
+
+<!-- FORM -->
+<input type="text" id="nome" placeholder="Ex: Luz, Mercado">
+<input type="number" id="valor" placeholder="Valor">
+<select id="tipo">
+  <option value="entrada">Entrada</option>
+  <option value="saida">Saída</option>
+</select>
+
+<select id="pagamento">
+  <option>Débito</option>
+  <option>Crédito</option>
+  <option>Dinheiro</option>
+</select>
+
+<input type="month" id="mes">
+
+<button onclick="adicionar()">Adicionar</button>
+
+<!-- TABELA -->
+<table>
+<thead>
+<tr>
+<th>Nome</th>
+<th>Valor</th>
+<th>Tipo</th>
+<th>Pagamento</th>
+<th>Mês</th>
+<th>Ações</th>
+</tr>
+</thead>
+<tbody id="tabela"></tbody>
+</table>
+
+<div class="resumo">
+Entradas: R$ <span id="entradas">0</span> |
+Saídas: R$ <span id="saidas">0</span> |
+Saldo: R$ <span id="saldo">0</span>
+</div>
+
+<canvas id="grafico"></canvas>
+
+</div>
+
+<script>
+let dados = JSON.parse(localStorage.getItem("dados")) || [];
+let grafico;
+
+// ADICIONAR
+function adicionar() {
+  const nome = document.getElementById("nome").value;
+  const valor = parseFloat(document.getElementById("valor").value);
+  const tipo = document.getElementById("tipo").value;
+  const pagamento = document.getElementById("pagamento").value;
+  const mes = document.getElementById("mes").value;
+
+  if (!nome || !valor || !mes) {
+    alert("Preencha tudo!");
+    return;
+  }
+
+  dados.push({ nome, valor, tipo, pagamento, mes });
+  salvar();
+  render();
+}
+
+// SALVAR
+function salvar() {
+  localStorage.setItem("dados", JSON.stringify(dados));
+}
+
+// EXCLUIR
+function excluir(index) {
+  dados.splice(index, 1);
+  salvar();
+  render();
+}
+
+// EDITAR
+function editar(index) {
+  const item = dados[index];
+  document.getElementById("nome").value = item.nome;
+  document.getElementById("valor").value = item.valor;
+  document.getElementById("tipo").value = item.tipo;
+  document.getElementById("pagamento").value = item.pagamento;
+  document.getElementById("mes").value = item.mes;
+
+  excluir(index);
+}
+
+// RENDERIZAR
+function render() {
+  const tabela = document.getElementById("tabela");
+  tabela.innerHTML = "";
+
+  let entradas = 0;
+  let saidas = 0;
+
+  dados.forEach((item, index) => {
+    const tr = document.createElement("tr");
+
+    if (item.tipo === "entrada") {
+      entradas += item.valor;
+    } else {
+      saidas += item.valor;
+    }
+
+    tr.innerHTML = `
+      <td>${item.nome}</td>
+      <td>R$ ${item.valor.toFixed(2)}</td>
+      <td>${item.tipo}</td>
+      <td>${item.pagamento}</td>
+      <td>${item.mes}</td>
+      <td>
+        <button onclick="editar(${index})">Editar</button>
+        <button onclick="excluir(${index})">Excluir</button>
+      </td>
+    `;
+
+    tabela.appendChild(tr);
+  });
+
+  document.getElementById("entradas").innerText = entradas.toFixed(2);
+  document.getElementById("saidas").innerText = saidas.toFixed(2);
+  document.getElementById("saldo").innerText = (entradas - saidas).toFixed(2);
+
+  atualizarGrafico(entradas, saidas);
+}
+
+// GRÁFICO
+function atualizarGrafico(entradas, saidas) {
+  const ctx = document.getElementById("grafico");
+
+  if (grafico) {
+    grafico.destroy();
+  }
+
+  grafico = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: ["Entradas", "Saídas"],
+      datasets: [{
+        data: [entradas, saidas],
+        backgroundColor: ["green", "red"]
+      }]
+    }
+  });
+}
+
+// INICIAR
+render();
+</script>
+
+</body>
+</html>
